@@ -1,6 +1,11 @@
 [package]
 
 name = "libssh"
+description = "bindings for libssh"
+homepage = "https://github.com/manuels/libssh.rs"
+documentation = "https://github.com/manuels/libssh.rs"
+repository = "https://github.com/manuels/libssh.rs"
 version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
-license = "GPL"
+license = "GPL-2.0"
+
