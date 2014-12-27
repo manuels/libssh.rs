@@ -1,5 +1,5 @@
 [package]
 
-name = "ssh"
+name = "libssh"
 version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
