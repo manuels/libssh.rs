@@ -1,11 +1,8 @@
-#![crate_type = "lib"]
-#![crate_name = "libssh_server"]
+#![allow(missing_copy_implementations)]
+#![allow(non_camel_case_types)]
 
 extern crate libc;
 use std::mem;
-
-use std::collections::enum_set::CLike;
-
 
 /*
 int ssh_blocking_flush()

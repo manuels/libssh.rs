@@ -1,3 +1,4 @@
+#![feature(globs)]
 #![feature(phase)]
 #[phase(plugin, link)] extern crate log;
 
@@ -35,4 +36,5 @@ pub fn with_ssh(func: ||) {
 
 	let finalizer = SSHFinalizer;
 	func();
+	drop(finalizer);
 }

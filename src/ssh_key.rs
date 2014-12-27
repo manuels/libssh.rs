@@ -1,11 +1,12 @@
+#![allow(unused_imports)]
 #[phase(plugin, link)] extern crate log;
 
 extern crate libc;
 
-use libssh;
+use libssh::*;
 use libssh_server;
-use ssh_message;
-use ssh_session;
+use ssh_message::SSHMessage;
+use ssh_session::SSHSession;
 
 use self::libc::types::common::c95::c_void;
 use std::ptr;
@@ -14,37 +15,37 @@ use std::mem;
 type AuthCb = extern fn(*const i8, *mut i8, u64, i32, i32, *mut libc::types::common::c95::c_void) -> i32;
 
 pub struct SSHKey {
-	_key: *mut libssh::ssh_key_struct
+	_key: *mut ssh_key_struct
 }
 
 impl Drop for SSHKey {
 	fn drop(&mut self) {
 		unsafe {
-			libssh::ssh_key_free(self._key)
+			ssh_key_free(self._key)
 		}
 	}
 }
 
 impl SSHKey {
-	pub fn raw(&self) -> *mut libssh::ssh_key_struct {
+	pub fn raw(&self) -> *mut ssh_key_struct {
 		assert!(self._key.is_not_null());
 		self._key
 	}
 
 	pub fn private_key_from_base64(b64_key: &str) -> Result<SSHKey, ()> {
 		b64_key.with_c_str(|b64_ptr| {
-			let mut key = 0 as *mut libssh::ssh_key_struct;
+			let mut key = 0 as *mut ssh_key_struct;
 
 			let pwd = ptr::null();
-			let auth_fn: Option<AuthCb> = None;
+			let auth_fn: Option<AuthCb> = Option::None;
 			let auth_data = 0 as *mut c_void;
 
-			let func = libssh::ssh_pki_import_privkey_base64;
+			let func = ssh_pki_import_privkey_base64;
 			let res = unsafe {
 				func(b64_ptr, pwd, auth_fn, auth_data, &mut key)
 			};
 			match res {
-				libssh::SSH_OK => {
+				SSH_OK => {
 					assert!(key.is_not_null());
 					Ok(SSHKey { _key: key })
 				},
@@ -54,15 +55,15 @@ impl SSHKey {
 	}
 
 	pub fn public_key_from_base64(b64_key: &str, typ: u32) -> Result<SSHKey, ()> {
-		let mut key = 0 as *mut libssh::ssh_key_struct;
+		let mut key = 0 as *mut ssh_key_struct;
 
 		b64_key.with_c_str(|b64_ptr| {
 			let res = unsafe {
-				libssh::ssh_pki_import_pubkey_base64(b64_ptr, typ, &mut key)
+				ssh_pki_import_pubkey_base64(b64_ptr, typ, &mut key)
 			};
 
 			match res {
-				libssh::SSH_OK => {
+				SSH_OK => {
 					assert!(key.is_not_null());
 					Ok(SSHKey { _key: key })
 				},
@@ -72,20 +73,20 @@ impl SSHKey {
 	}
 
 	/* used by client to get server's public key */
-	pub fn from_session(session: &ssh_session::SSHSession)
+	pub fn from_session(session: &SSHSession)
 			-> Result<SSHKey, &'static str>
 	{
 		let session_ptr = session.raw();
 		assert!(session_ptr.is_not_null());
 
-		let mut key = 0 as *mut libssh::ssh_key_struct;
+		let mut key = 0 as *mut ssh_key_struct;
 
 		let res = unsafe {
-			libssh::ssh_get_publickey(session_ptr, &mut key)
+			ssh_get_publickey(session_ptr, &mut key)
 		};
 		
 		match res {
-			libssh::SSH_OK => {
+			SSH_OK => {
 				assert!(key.is_not_null());
 				Ok(SSHKey { _key: key })
 			},
@@ -94,7 +95,7 @@ impl SSHKey {
 	}
 
 	/* used by server to get client's public key */
-	pub fn from_message<'a>(message: &ssh_message::SSHMessage)
+	pub fn from_message<'a>(message: &SSHMessage)
 		-> Result<SSHKey, &'a str>
 	{
 		let msg = message.raw();
@@ -104,8 +105,8 @@ impl SSHKey {
 		let subtype = message.get_subtype();
 
 		let is_correct_msg_type =
-		    (type_ == libssh_server::ssh_requests_e::SSH_REQUEST_AUTH &&
-		     subtype == libssh_server::SSH_AUTH_METHOD_PUBLICKEY);
+		    type_ == libssh_server::ssh_requests_e::SSH_REQUEST_AUTH
+		     && subtype == libssh_server::SSH_AUTH_METHOD_PUBLICKEY;
 
 		if !is_correct_msg_type {
 		   	//let msg:String = format!("auth_public_key() expected corresponding message, but got {}:{}",
@@ -128,17 +129,15 @@ impl SSHKey {
 
 	pub fn is_private(&self) -> bool {
 		assert!(self._key.is_not_null());
-		let foo = unsafe { libssh::ssh_key_is_private(self._key) };
-		unsafe { libssh::ssh_key_is_private(self._key) != 0 }
+		unsafe { ssh_key_is_private(self._key) != 0 }
 	}
 
 	pub fn is_public(&self) -> bool {
 		assert!(self._key.is_not_null());
-		unsafe { libssh::ssh_key_is_public(self._key) != 0 }
+		unsafe { ssh_key_is_public(self._key) != 0 }
 	}
 
-	/*pub fn get_hash(&self) -> SSHHash {
-
+	/*pub fn get_publickey_hash(&self) -> SSHHash {
 	}*/
 }
 
@@ -150,12 +149,12 @@ impl PartialEq for SSHKey {
 		}
 
 		let what = if self.is_private() {
-			libssh::ssh_keycmp_e::SSH_KEY_CMP_PRIVATE
+			ssh_keycmp_e::SSH_KEY_CMP_PRIVATE
 		} else {
-			libssh::ssh_keycmp_e::SSH_KEY_CMP_PUBLIC
+			ssh_keycmp_e::SSH_KEY_CMP_PUBLIC
 		} as u32;
 
-		unsafe { libssh::ssh_key_cmp(self._key, other._key, what) == 0 }
+		unsafe { ssh_key_cmp(self._key, other._key, what) == 0 }
 	}
 }
 
@@ -265,7 +264,7 @@ Tx3SzpHbXS2FWmS1krpoNfRCgvTostouGlqjmZJhxPNgV4DNMS1D
 	fn invalid_public_key_fails() {
 		::ssh_initialize();
 
-		let typ = ::libssh::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
+		let typ = ::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
 		super::SSHKey::public_key_from_base64(INVALID_PUBLIC_KEY.deref(), typ).unwrap();
 	}
 
@@ -281,7 +280,7 @@ Tx3SzpHbXS2FWmS1krpoNfRCgvTostouGlqjmZJhxPNgV4DNMS1D
 	fn same_public_key_is_equal() {
 		::ssh_initialize();
 
-		let typ = ::libssh::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
+		let typ = ::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
 		let key1 = super::SSHKey::public_key_from_base64(PUBLIC_KEY1.deref(), typ).unwrap();
 		assert!(key1 == key1);
 	}
@@ -302,7 +301,7 @@ Tx3SzpHbXS2FWmS1krpoNfRCgvTostouGlqjmZJhxPNgV4DNMS1D
 	fn different_public_keys_are_not_equal() {
 		::ssh_initialize();
 
-		let typ = ::libssh::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
+		let typ = ::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
 		let key1 = super::SSHKey::public_key_from_base64(PUBLIC_KEY1.deref(), typ).unwrap();
 		let key2 = super::SSHKey::public_key_from_base64(PUBLIC_KEY2.deref(), typ).unwrap();
 
@@ -314,7 +313,7 @@ Tx3SzpHbXS2FWmS1krpoNfRCgvTostouGlqjmZJhxPNgV4DNMS1D
 	fn public_key_is_public_key() {
 		::ssh_initialize();
 
-		let typ = ::libssh::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
+		let typ = ::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
 		let key1 = super::SSHKey::public_key_from_base64(PUBLIC_KEY1.deref(), typ).unwrap();
 		assert!(key1.is_public());
 	}
@@ -324,7 +323,7 @@ Tx3SzpHbXS2FWmS1krpoNfRCgvTostouGlqjmZJhxPNgV4DNMS1D
 	fn public_key_is_not_private_key() {
 		::ssh_initialize();
 
-		let typ = ::libssh::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
+		let typ = ::ssh_keytypes_e::SSH_KEYTYPE_RSA as u32;
 		let key1 = super::SSHKey::public_key_from_base64(PUBLIC_KEY1.deref(), typ).unwrap();
 		assert!(key1.is_private());
 	}
